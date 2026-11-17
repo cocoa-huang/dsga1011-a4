@@ -2,3 +2,12 @@
 __pycache__/
 *.pyc
 .claude/settings.local.json
+.venv/
+part1/out*/
+part2/checkpoints/
+*.aux
+*.log
+*.synctex.gz
+a4 (1).pdf
+observations.md
+report.pdf

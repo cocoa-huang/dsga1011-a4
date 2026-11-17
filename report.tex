@@ -1,0 +1,41 @@
+\documentclass[11pt]{article}
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath,amssymb}
+\usepackage{enumitem}
+
+\title{DS-GA 1011 Assignment 4: Written Answers}
+\author{Eric Huang \\ NetID: \texttt{zh2312}}
+\date{}
+
+\begin{document}
+\maketitle
+
+\section*{Q2. Data Transformations}
+
+\subsection*{Q2a. Design a data transformation}
+
+% \paragraph{What the transformation does.}
+\newcommand{\blank}[1]{\textbf{[#1]}}
+My proposed transformation aim to simulate the typing errors common in user written reviews by introducing single-character typos (substitutions with an adjacent keyboard key and transpositions of adjacent letters) into adjectives and adverbs, which in theory carry much of a review's sentiment.
+Given a review, I apply the following steps:
+\begin{enumerate}[label=\arabic*.]
+  \item \textbf{Tokenize and tag.} Each review is split into word and punctuation tokens with NLTK's \texttt{word\_tokenize} (e.g., ``isn't great!'' $\rightarrow$ \texttt{is}, \texttt{n't}, \texttt{great}, \texttt{!}), and each token is assigned a Penn Treebank part-of-speech tag by NLTK's \texttt{pos\_tag}, which tags words in the context of the full review.
+  \item \textbf{Select eligible words.} \blank{Which POS tags count (list them); the alphabetic and minimum-length conditions.}
+  \item \textbf{Sample words to corrupt.} \blank{The probability, and that each eligible word is chosen independently.}
+  \item \textbf{Apply one edit per chosen word.} \blank{How the edit type is chosen; which character positions may change and why the first and last letters are kept.}
+  \begin{itemize}
+    \item \emph{Substitution:} \blank{Which letter is replaced, by what (the QWERTY neighbor map: letters only, same row and adjacent rows), and how case is handled.}
+    \item \emph{Transposition:} \blank{Which pair is swapped, the ``different letters'' requirement, and the fallback rule when no such pair exists.}
+  \end{itemize}
+  \item \textbf{Detokenize.} \blank{How the words are joined back into text.}
+\end{enumerate}
+\blank{Randomness: the seed and the sequential-processing note. Labels are unchanged.}
+
+\paragraph{Example.}
+% One short original -> transformed pair.
+
+\paragraph{Why it is reasonable.}
+% Why a real user could plausibly produce this input at test time,
+% and why a human would still assign the same label.
+
+\end{document}

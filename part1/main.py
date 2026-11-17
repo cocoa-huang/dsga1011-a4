@@ -45,7 +45,21 @@ def do_train(args, model, train_dataloader, save_dir="./out"):
     # You can use progress_bar.update(1) to see the progress during training
     # You can refer to the pytorch tutorial covered in class for reference
 
-    raise NotImplementedError
+    for epoch in range(num_epochs):
+        total_loss = 0
+        for batch in train_dataloader:
+            batch = {k: v.to(device) for k, v in batch.items()}
+            outputs = model(**batch)
+            loss = outputs.loss
+            loss.backward()
+            optimizer.step() # applies Adam W update
+            lr_scheduler.step() # moves lr one step along the linear decay, called once per batch
+            optimizer.zero_grad()
+            l = loss.item()
+            total_loss += l
+            progress_bar.set_postfix(loss = l)
+            progress_bar.update(1)
+        print(f"epoch {epoch}: avg loss {total_loss / len(train_dataloader):.4f}")
 
     ##### YOUR CODE ENDS HERE ######
 
@@ -152,7 +166,7 @@ if __name__ == "__main__":
     global tokenizer
 
     # Device
-    device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
+    device = torch.device("cuda" if torch.cuda.is_available() else "mps" if torch.backends.mps.is_available() else "cpu")
 
     # Load the tokenizer
     tokenizer = AutoTokenizer.from_pretrained("bert-base-cased")
