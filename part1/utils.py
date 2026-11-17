@@ -33,8 +33,10 @@ def example_transform(example):
 # something called synsets (which stands for synonymous words) and for each of them, lemmas() should give you a possible synonym word.
 # You can randomly select each word with some fixed probability to replace by a synonym.
 
-P_CORRUPT = 0.3
-ELIGIBLE_TAGS = {"JJ", "JJR", "JJS", "RB", "RBR", "RBS"}                                  # (1)
+P_CORRUPT = 0.5
+ELIGIBLE_TAGS = {"JJ", "JJR", "JJS", "RB", "RBR", "RBS",              
+                 "VB", "VBD", "VBG", "VBN", "VBP", "VBZ",             
+                 "NN", "NNS"}    
 
 ROWS = ["qwertyuiop", "asdfghjkl", "zxcvbnm"]
 NEIGHBORS = {}
