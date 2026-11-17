@@ -9,10 +9,10 @@ import wandb
 
 from t5_utils import initialize_model, initialize_optimizer_and_scheduler, save_model, load_model_from_checkpoint, setup_wandb
 from transformers import GenerationConfig
-from load_data import load_t5_data
+from load_data import load_t5_data, TOKENIZER, LT
 from utils import compute_metrics, save_queries_and_records
 
-DEVICE = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
+DEVICE = torch.device("cuda" if torch.cuda.is_available() else "mps" if torch.backends.mps.is_available() else "cpu")
 PAD_IDX = 0
 
 def get_args():
@@ -43,6 +43,9 @@ def get_args():
                         help="If set, we will use wandb to keep track of experiments")
     parser.add_argument('--experiment_name', type=str, default='experiment',
                         help="How should we name this experiment?")
+    parser.add_argument('--num_beams', type=int, default=1,
+                        help="1 = greedy decoding; >1 = beam search")
+
 
     # Data hyperparameters
     parser.add_argument('--batch_size', type=int, default=16)
@@ -127,7 +130,22 @@ def train_epoch(args, model, train_loader, optimizer, scheduler):
             total_tokens += num_tokens
 
     return total_loss / total_tokens
-        
+
+def generate_sql(args, model, loader):
+    model.eval()
+    queries = []
+    with torch.no_grad():
+        for batch in tqdm(loader):
+            enc, mask = batch[0].to(DEVICE), batch[1].to(DEVICE)       # works for both dev and test batches
+            out = model.generate(input_ids=enc, attention_mask=mask,
+                                 max_new_tokens=512,                  # longest SQL is 510 tokens
+                                 num_beams=args.num_beams)
+            texts = TOKENIZER.batch_decode(out, skip_special_tokens=True,
+                                           clean_up_tokenization_spaces=False)   # keep " ," for SQL EM
+            queries += [t.replace(LT, "<").strip() for t in texts]   # undo the '<' placeholder
+    return queries
+
+
 def eval_epoch(args, model, dev_loader, gt_sql_pth, model_sql_path, gt_record_path, model_record_path):
     '''
     You must implement the evaluation loop to be using during training. We recommend keeping track
@@ -138,16 +156,36 @@ def eval_epoch(args, model, dev_loader, gt_sql_pth, model_sql_path, gt_record_pa
     should both provide good results. If you find that this component of evaluation takes too long with your compute,
     we found the cross-entropy loss (in the evaluation set) to be well (albeit imperfectly) correlated with F1 performance.
     '''
-    # TODO
     model.eval()
-    return 0, 0, 0, 0, 0
+    criterion = nn.CrossEntropyLoss()
+    total_loss, total_tokens = 0, 0
+    with torch.no_grad():                                   
+        for enc, mask, dec_in, dec_tgt, _ in dev_loader:
+            enc, mask, dec_in, dec_tgt = enc.to(DEVICE), mask.to(DEVICE), dec_in.to(DEVICE), dec_tgt.to(DEVICE)
+            logits = model(input_ids=enc, attention_mask=mask, decoder_input_ids=dec_in)['logits']
+            non_pad = dec_tgt != PAD_IDX
+            loss = criterion(logits[non_pad], dec_tgt[non_pad])
+            n = non_pad.sum().item()
+            total_loss += loss.item() * n
+            total_tokens += n
+    eval_loss = total_loss / total_tokens
+
+    queries = generate_sql(args, model, dev_loader)          
+    save_queries_and_records(queries, model_sql_path, model_record_path)
+    sql_em, record_em, record_f1, error_msgs = compute_metrics(gt_sql_pth, model_sql_path,
+                                                               gt_record_path, model_record_path)
+    error_rate = sum(m != "" for m in error_msgs) / len(error_msgs)
+    return eval_loss, record_f1, record_em, sql_em, error_rate
+    
+    
         
 def test_inference(args, model, test_loader, model_sql_path, model_record_path):
     '''
     You must implement inference to compute your model's generated SQL queries and its associated 
     database records. Implementation should be very similar to eval_epoch.
     '''
-    pass
+    queries = generate_sql(args, model, test_loader)
+    save_queries_and_records(queries, model_sql_path, model_record_path)
 
 def main():
     # Get key arguments
