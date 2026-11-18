@@ -13,7 +13,7 @@ import torch
 
 PAD_IDX = 0
 PREFIX = "translate English to SQL: "
-LT = "&lt;"
+LT = "<" if os.environ.get("NO_LT") == "1" else "&lt;"  # NO_LT=1: ablation, raw '<' (becomes <unk>)
 DECODER_START = PAD_IDX
 TOKENIZER = T5TokenizerFast.from_pretrained("google-t5/t5-small")
 
