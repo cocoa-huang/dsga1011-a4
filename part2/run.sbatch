@@ -2,7 +2,7 @@
 #SBATCH --account=ds_ga_1011-2026fa
 #SBATCH --partition=c12m85-a100-1
 #SBATCH --gres=gpu:1
-#SBATCH --time=02:00:00
+#SBATCH --time=03:00:00
 #SBATCH --output=%j_%x.out
 #SBATCH --requeue
 # Usage (from part2/): sbatch run.sbatch --finetune --learning_rate 3e-4 ... --use_wandb --experiment_name NAME

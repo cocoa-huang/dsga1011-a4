@@ -1,4 +1,5 @@
 import sqlite3
+import time
 import numpy as np
 import os
 import re
@@ -122,8 +123,13 @@ def compute_records(processed_qs: List[str]):
             
     return recs, error_msgs
 
+QUERY_TIMEOUT_SECS = 120
+
 def compute_record(query_id, query):
     conn = sqlite3.connect(DB_PATH)
+    # Abort runaway queries inside SQLite; a thread stuck in execute() otherwise blocks interpreter exit.
+    deadline = time.time() + QUERY_TIMEOUT_SECS
+    conn.set_progress_handler(lambda: time.time() > deadline, 10000)
     cursor = conn.cursor()
 
     try:
