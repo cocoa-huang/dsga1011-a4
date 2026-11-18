@@ -17,6 +17,32 @@ LT = "<" if os.environ.get("NO_LT") == "1" else "&lt;"  # NO_LT=1: ablation, raw
 DECODER_START = PAD_IDX
 TOKENIZER = T5TokenizerFast.from_pretrained("google-t5/t5-small")
 
+# SQL_VOCAB=1 (extra credit, from scratch): each whitespace-separated SQL word from train.sql is one
+# decoder token, with ids appended after T5's 32128 embedding rows. Encoder input still uses TOKENIZER.
+SQL_VOCAB = os.environ.get("SQL_VOCAB") == "1"
+SQL_OFFSET = 32128
+_train_sql = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data", "train.sql")
+SQL_WORDS = sorted({w for line in open(_train_sql) for w in line.split()}) if SQL_VOCAB else []
+SQL_ID = {w: SQL_OFFSET + i for i, w in enumerate(SQL_WORDS)}
+VOCAB_SIZE = SQL_OFFSET + len(SQL_WORDS)
+
+def encode_sql(sql):
+    if SQL_VOCAB:
+        return [SQL_ID.get(w, 2) for w in sql.split()] + [1]          # 2 = <unk>, 1 = </s>
+    return TOKENIZER(sql.replace("<", LT)).input_ids
+
+def decode_sql(ids):
+    if SQL_VOCAB:
+        words = []
+        for i in ids:
+            if i == 1:                                                 # </s>
+                break
+            if i >= SQL_OFFSET:                                        # skip pad/start and stray subword ids
+                words.append(SQL_WORDS[i - SQL_OFFSET])
+        return " ".join(words)
+    return TOKENIZER.decode(ids, skip_special_tokens=True,
+                            clean_up_tokenization_spaces=False).replace(LT, "<").strip()
+
 class T5Dataset(Dataset):
 
     def __init__(self, data_folder, split):
@@ -38,7 +64,7 @@ class T5Dataset(Dataset):
         self.enc = [tokenizer(PREFIX + q).input_ids for q in nl]    
         if split != "test":
             sql = load_lines(os.path.join(data_folder, f"{split}.sql"))
-            self.dec = [tokenizer(s.replace("<", LT)).input_ids for s in sql]
+            self.dec = [encode_sql(s) for s in sql]
 
     
     def __len__(self):

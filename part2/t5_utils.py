@@ -6,6 +6,7 @@ import transformers
 from transformers import T5ForConditionalGeneration, T5Config
 from transformers.pytorch_utils import ALL_LAYERNORM_LAYERS
 import wandb
+from load_data import VOCAB_SIZE
 
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "mps" if torch.backends.mps.is_available() else "cpu")
 
@@ -31,6 +32,7 @@ def initialize_model(args):
             print(f"trainable params: {sum(p.numel() for p in model.parameters() if p.requires_grad)/1e6:.2f}M")
     else:
         config = T5Config.from_pretrained("google-t5/t5-small")
+        config.vocab_size = VOCAB_SIZE   # 32128 unless SQL_VOCAB=1
         model = T5ForConditionalGeneration(config)
     
     return model.to(DEVICE)

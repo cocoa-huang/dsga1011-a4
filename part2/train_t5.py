@@ -9,7 +9,7 @@ import wandb
 
 from t5_utils import initialize_model, initialize_optimizer_and_scheduler, save_model, load_model_from_checkpoint, setup_wandb
 from transformers import GenerationConfig
-from load_data import load_t5_data, TOKENIZER, LT
+from load_data import load_t5_data, decode_sql
 from utils import compute_metrics, save_queries_and_records
 
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "mps" if torch.backends.mps.is_available() else "cpu")
@@ -44,6 +44,8 @@ def get_args():
                         help="If set, we will use wandb to keep track of experiments")
     parser.add_argument('--experiment_name', type=str, default='experiment',
                         help="How should we name this experiment?")
+    parser.add_argument('--eval_every', type=int, default=1,
+                        help="Run dev generation every N epochs (and on the last); patience counts these evals")
     parser.add_argument('--num_beams', type=int, default=1,
                         help="1 = greedy decoding; >1 = beam search")
 
@@ -68,6 +70,10 @@ def train(args, model, train_loader, dev_loader, optimizer, scheduler):
     for epoch in range(args.max_n_epochs):
         tr_loss = train_epoch(args, model, train_loader, optimizer, scheduler)
         print(f"Epoch {epoch}: Average train loss was {tr_loss}")
+        if (epoch + 1) % args.eval_every != 0 and epoch != args.max_n_epochs - 1:
+            if args.use_wandb:
+                wandb.log({'train/loss': tr_loss}, step=epoch)
+            continue
 
         eval_loss, record_f1, record_em, sql_em, error_rate = eval_epoch(args, model, dev_loader,
                                                                          gt_sql_path, model_sql_path,
@@ -141,9 +147,7 @@ def generate_sql(args, model, loader):
             out = model.generate(input_ids=enc, attention_mask=mask,
                                  max_new_tokens=512,                  # longest SQL is 510 tokens
                                  num_beams=args.num_beams)
-            texts = TOKENIZER.batch_decode(out, skip_special_tokens=True,
-                                           clean_up_tokenization_spaces=False)   # keep " ," for SQL EM
-            queries += [t.replace(LT, "<").strip() for t in texts]   # undo the '<' placeholder
+            queries += [decode_sql(o) for o in out.tolist()]   # keeps " ," and undoes the < placeholder
     return queries
 
 
