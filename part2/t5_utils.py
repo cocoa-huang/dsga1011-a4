@@ -23,6 +23,12 @@ def initialize_model(args):
     '''
     if args.finetune:
         model = T5ForConditionalGeneration.from_pretrained("google-t5/t5-small")
+        if getattr(args, "freeze_encoder", False):
+            for p in model.encoder.parameters():
+                p.requires_grad = False
+            # encoder.embed_tokens, decoder.embed_tokens and lm_head all share model.shared: keep it trainable
+            model.shared.weight.requires_grad = True
+            print(f"trainable params: {sum(p.numel() for p in model.parameters() if p.requires_grad)/1e6:.2f}M")
     else:
         config = T5Config.from_pretrained("google-t5/t5-small")
         model = T5ForConditionalGeneration(config)
